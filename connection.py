@@ -3,6 +3,13 @@
 
 # Bot token
 token = 'bot:Token'
+botan_key = "botan_key"
+
+# AD server
+ad_server = "ad_server"
+ad_user = "Domain\\ad_user"
+ad_secret = "ad_secret"
+ad_ou = 'OU=Users,DC=Domain,DC=LOCAL'
 
 # Connect to the otrs database
 host_otrs = 'host_otrs'

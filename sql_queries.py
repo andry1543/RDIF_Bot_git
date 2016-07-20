@@ -26,7 +26,9 @@ detailed_queue = "SELECT queue.name AS 'Queue' " \
 
 
 # Проверка пристутсвия пользователя телеграм в базе доверенных.
-validation_by_id = "SELECT COUNT(ID) AS 'ID', otrs_queue_id FROM tlgrm_bot.users WHERE ID = %s"
+validation_by_id = "SELECT COUNT(ID) AS 'ID', otrs_queue_id, AD_name, update_time FROM tlgrm_bot.users WHERE ID = %s"
+# Update Date update in user DB
+update_valid_date = "UPDATE users set update_time = CURDATE() WHERE ID = %s"
 
 # Адресная книга с портала
 addr_book = "SELECT NAME, LAST_NAME, PERSONAL_MOBILE, WORK_PHONE " \
@@ -39,8 +41,8 @@ directum_state = """
                  SELECT
                  item.Dop3 as 'worker',
                  CASE
-                 WHEN [Readed] = 'Y' THEN 'Прочтено'
-                 WHEN [Readed] = 'N' THEN 'Не прочтено'
+                 WHEN [Readed] = 'Y' THEN 'прочтено'
+                 WHEN [Readed] = 'N' THEN 'не прочтено'
                  END
                  AS 'read'
                  FROM directum.dbo.SBTaskJob job
@@ -48,4 +50,3 @@ directum_state = """
                  WHERE TaskID = %s  AND State = 'W'
                  ORDER BY job.XRecID;
                  """
-

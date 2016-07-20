@@ -2,8 +2,12 @@
 import json
 import requests
 import pymysql.cursors
+
 import urllib.request
+from bs4 import BeautifulSoup
 import random
+import datetime
+from ldap3 import Server, Connection, ALL, NTLM
 
 
 import connection
@@ -45,7 +49,7 @@ def transliterate(string):
                        u'Ь': u'',
                        u'Э': u'E',
                        u'Ю': u'Yu',
-                       u'Я': u'Ya',}
+                       u'Я': u'Ya'}
 
     lower_case_letters = {u'а': u'a',
                           u'б': u'b',
@@ -79,7 +83,7 @@ def transliterate(string):
                           u'ь': u'',
                           u'э': u'e',
                           u'ю': u'yu',
-                          u'я': u'ya',}
+                          u'я': u'ya'}
 
     translit_string = ""
 
@@ -98,9 +102,16 @@ def transliterate(string):
     return translit_string
 
 
-# Сверка пользователя с базой SQL
+# Check user in SQL and AD
 def useraccess(userid):
+    server = Server(connection.ad_server, get_info=ALL)
+    conn = Connection(server,
+                      user=connection.ad_user,
+                      password=connection.ad_secret,
+                      authentication=NTLM)
     number = 0
+    user = ''
+    update_time = 0
     connection_users = pymysql.connect(host=connection.host_otrs,
                                        user=connection.user_otrs,
                                        password=connection.password_otrs,
@@ -112,10 +123,34 @@ def useraccess(userid):
             cur_users.execute(sql_queries.validation_by_id, userid)
             for row in cur_users:
                 number = row['ID']
+                user = row['AD_name']
+                update_time = row['update_time']
     finally:
         connection_users.close()
     if number != 1:
         return False
+    elif datetime.date.today() - datetime.timedelta(days=7) > update_time:
+        conn.bind()
+        if conn.search(search_base=connection.ad_ou,
+                       search_filter='(&(samAccountName=' + user + '))'):
+            connection_users = pymysql.connect(host=connection.host_otrs,
+                                               user=connection.user_otrs,
+                                               password=connection.password_otrs,
+                                               db=connection.db_otrs_users,
+                                               charset=connection.charset,
+                                               cursorclass=pymysql.cursors.DictCursor)
+            try:
+                with connection_users.cursor() as cur_users:
+                    cur_users.execute(sql_queries.update_valid_date, userid)
+                    connection_users.commit()
+            finally:
+                cur_users.close()
+                connection_users.close()
+            conn.unbind()
+            return True
+        else:
+            conn.unbind()
+            return False
     else:
         return True
 
@@ -168,5 +203,3 @@ def getxkcdimage():
             pass
         url_while = url
     return False
-
-

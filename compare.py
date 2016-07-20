@@ -62,7 +62,7 @@ def compare(username):
                     else:
                         find = False
                 rat_last_name = similar(username, last_name_low)
-                if rat_last_name > 0.75:
+                if rat_last_name > 0.7:
                     if len(result) > 0:
                         find = any(d['Name'] == name for d in result)
                     if not find:

@@ -24,7 +24,7 @@ class AppServerSvc(win32serviceutil.ServiceFramework):
         win32serviceutil.ServiceFramework.__init__(self, args)
         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
         self.hWaitResume = win32event.CreateEvent(None, 0, 0, None)
-        self.timeout = 10000  # Пауза между выполнением основного цикла службы в миллисекундах
+        self.timeout = 1000  # Пауза между выполнением основного цикла службы в миллисекундах
         self.resumeTimeout = 1000
         self._paused = False
 
