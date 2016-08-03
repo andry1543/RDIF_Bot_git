@@ -10,7 +10,7 @@ URL_TEMPLATE = 'https://api.botan.io/track?token={token}&uid={uid}&name={name}'
 # Если не нужно собирать ничего, кроме количества использований,
 # уберите эту функцию
 def make_json(message):
-    data = {}
+    data = dict()
     data['message_id'] = message.message_id
     data['from'] = {}
     data['from']['id'] = message.from_user.id

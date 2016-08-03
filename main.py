@@ -6,6 +6,8 @@ import sql_queries
 import compare
 import functions
 import botan
+from datetime import datetime
+import re
 
 
 import pymssql
@@ -13,6 +15,19 @@ import pymysql.cursors
 import telebot
 
 bot = telebot.TeleBot(connection.token)
+
+
+'''
+not case sensetive in telebot library:
+def _test_filter(self, filter, filter_value, message):
+    test_cases = {
+        'content_types': lambda msg: msg.content_type in filter_value,
+        'regexp': lambda msg: msg.content_type == 'text' and re.search(filter_value, msg.text),
+        'commands': lambda msg: msg.content_type == 'text' and util.extract_command(msg.text.lower())
+        in filter_value,
+        'func': lambda msg: filter_value(msg)
+    }
+'''
 
 
 #  '/start' .
@@ -46,10 +61,11 @@ def handle_joke(message):
 # '/xkcd' Random image from xkcd
 @bot.message_handler(commands=['xkcd'])
 def handle_xkcd(message):
-    result = functions.getxkcdimage()
+    result = False
+    result_text = False
     while not result:
-        result = functions.getxkcdimage()
-    bot.send_photo(message.chat.id, result)
+        result, result_text = functions.getxkcdimage()
+    bot.send_photo(message.chat.id, result, result_text)
     botan.track(connection.botan_key, message.chat.id, message, 'Картинка с xkcd')
 
 
@@ -73,7 +89,7 @@ def handle_abm(message):
         else:
             result = compare.compare(username)
             if not result:
-                bot.send_message(message.chat.id, config.addrbookempty)
+                bot.send_message(message.chat.id, config.addrbook_empty)
             else:
                 for row in result:
                     if i > 4:
@@ -85,7 +101,7 @@ def handle_abm(message):
                     if mphone != '':
                         bot.send_message(message.chat.id, name)
                         if i > 4:
-                            bot.send_message(message.chat.id, config.addrbookmore)
+                            bot.send_message(message.chat.id, config.addrbook_more)
                     else:
                         bot.send_message(message.chat.id, config.mphoneisempty)
     else:
@@ -104,7 +120,7 @@ def handle_abw(message):
         else:
             result = compare.compare(username)
             if not result:
-                bot.send_message(message.chat.id, config.addrbookempty)
+                bot.send_message(message.chat.id, config.addrbook_empty)
             else:
                 for row in result:
                     if i > 4:
@@ -116,14 +132,14 @@ def handle_abw(message):
                     if wphone != '':
                         bot.send_message(message.chat.id, name)
                         if i > 4:
-                            bot.send_message(message.chat.id, config.addrbookmore)
+                            bot.send_message(message.chat.id, config.addrbook_more)
                     else:
                         bot.send_message(message.chat.id, config.wphoneisempty)
     else:
         bot.send_message(message.chat.id, config.security_fail)
 
 
-#  '/security'. Test user for security access
+# '/security'. Test user for security access
 @bot.message_handler(commands=['security'])
 def handle_security(message):
     botan.track(connection.botan_key, message.chat.id, message, 'Security test')
@@ -131,6 +147,71 @@ def handle_security(message):
         bot.send_message(message.chat.id, config.security_success)
     else:
         bot.send_message(message.chat.id, config.security_fail)
+
+
+# '/vacation'. Check free days for vacancy
+@bot.message_handler(commands=['vacation'])
+def handle_security(message):
+    botan.track(connection.botan_key, message.chat.id, message, 'Vacation')
+    date_object = datetime.today()
+    vac_date = message.text[10:]
+
+    fail = False
+    # date multiformat
+    if len(vac_date) > 0:
+        regx = re.compile('[.-/,]')
+        d, m, y = regx.split(vac_date)
+        date_list = ('20' + y.zfill(2) if len(y) == 2 else y,
+                     m.zfill(2) if 0 < len(m) < 3 else 0,
+                     d.zfill(2) if 0 < len(d) < 3 else 0)
+        try:
+            date_object = datetime.strptime('-'.join(date_list), '%Y-%m-%d')
+        except (ValueError, TypeError):
+            fail = True
+            pass
+        if fail:
+            fail = False
+            date_list = ('20' + d.zfill(2) if len(d) == 2 else d,
+                         m.zfill(2) if 0 < len(m) < 3 else 0,
+                         y.zfill(2) if 0 < len(y) < 3 else 0)
+            try:
+                date_object = datetime.strptime('-'.join(date_list), '%Y-%m-%d')
+            except (ValueError, TypeError):
+                fail = True
+                pass
+    # bot.send_message(message.chat.id, date_object.strftime('%Y-%m-%d'))
+    if fail:
+        result = functions.getvacation(message.from_user.id, datetime.today())
+        if result:
+            if result == -5001:
+                answer = config.vacation_notrfpi
+            else:
+                answer = config.vacation_fail + \
+                        datetime.today().strftime('%Y-%m-%d') + config.vac_days1 + str(result)
+            bot.send_message(message.chat.id, answer)
+        else:
+            bot.send_message(message.chat.id, config.security_fail)
+    elif date_object < datetime.today():
+        result = functions.getvacation(message.from_user.id, datetime.today())
+        if result:
+            if result == -5001:
+                answer = config.vacation_notrfpi
+            else:
+                answer = config.vacation_less + \
+                     datetime.today().strftime('%Y-%m-%d') + config.vac_days1 + str(result)
+            bot.send_message(message.chat.id, answer)
+        else:
+            bot.send_message(message.chat.id, config.security_fail)
+    else:
+        result = functions.getvacation(message.from_user.id, date_object)
+        if result:
+            if result == -5001:
+                answer = config.vacation_notrfpi
+            else:
+                answer = config.vac_days2 + date_object.strftime('%Y-%m-%d') + ' - ' + str(result)
+            bot.send_message(message.chat.id, answer)
+        else:
+            bot.send_message(message.chat.id, config.security_fail)
 
 
 #  '/info'.
@@ -162,7 +243,8 @@ def handle_queue(message):
                 total += num_of_tickets
                 # print(name)
                 ', '.join(row)
-                queue += '\n' + str(name) + ': ' + str(num_of_tickets) + config.q_tot + str(total)
+                queue += '\n' + str(name) + ': ' + str(num_of_tickets)
+            queue += config.q_tot + '\n' + str(total)
             bot.send_message(message.chat.id, queue)
     finally:
         connection_otrs.close()
@@ -256,9 +338,17 @@ def handle_directum(message):
 # all other
 @bot.message_handler(content_types=["text"])
 def repeat_all_messages(message):
-    text = config.text + message.from_user.first_name + '?'
+    text = config.dont_understand + message.from_user.first_name + '?'
     bot.send_message(message.chat.id, text)
 
 # TODO Исправить падение библиотеки при отрыве от сервера
+'''
+while 1:
+    if __name__ == '__main__':
+        try:
+            bot.polling(none_stop=True)
+        except Exception:
+            pass
+'''
 if __name__ == '__main__':
     bot.polling(none_stop=True)

@@ -32,9 +32,7 @@ def compare(username):
                 first_name_low = first_name.lower()
                 last_name_low = last_name.lower()
                 find = False
-                name = first_name
-                name += ' '
-                name += last_name
+                name = first_name + ' ' + last_name
                 name_low = name.lower()
                 username = functions.transliterate(username)
                 username = username.lower()

@@ -2,16 +2,16 @@
 import json
 import requests
 import pymysql.cursors
-
-import urllib.request
+import urllib.request as urllib2
 from bs4 import BeautifulSoup
-import random
 import datetime
-from ldap3 import Server, Connection, ALL, NTLM
+import ldap3
+import random
 
 
 import connection
 import sql_queries
+import config
 
 
 # Транслитерация
@@ -104,11 +104,11 @@ def transliterate(string):
 
 # Check user in SQL and AD
 def useraccess(userid):
-    server = Server(connection.ad_server, get_info=ALL)
-    conn = Connection(server,
-                      user=connection.ad_user,
-                      password=connection.ad_secret,
-                      authentication=NTLM)
+    server = ldap3.Server(connection.ad_server, get_info=ldap3.ALL)
+    conn = ldap3.Connection(server,
+                            user=connection.ad_user,
+                            password=connection.ad_secret,
+                            authentication=ldap3.NTLM)
     number = 0
     user = ''
     update_time = 0
@@ -182,24 +182,67 @@ def getbashquote():
 
 def getxkcdimage():
     number = random.randint(1, 1582)
-    url = 'http://xkcd.ru/i/'
-    url += str(number)
-    url += '_v'
-    url_while = url
-    i = 9
-    while i > 0:
-        url_while += str(i)
-        url_while += '.png'
-        i -= 1
+    xkcd_url = config.xkcd_url + str(number)
+    try:
+        web_soup = BeautifulSoup(urllib2.urlopen(xkcd_url),  "html.parser")
+    except urllib2.HTTPError:
+        return False, False
+
+    xkcd_urlimg = web_soup.find(name="img")["src"]
+    xkcd_text = web_soup.find(name="div", attrs={'class': 'comics_text'})
+    try:
+        urllib2.urlopen(xkcd_urlimg)
+        f = open('out.png', 'wb')
+        f.write(urllib2.urlopen(xkcd_urlimg).read())
+        img = open('out.png', 'rb')
+        f.close()
+        return img, xkcd_text
+    except urllib2.HTTPError:
+        pass
+    return False, False
+
+
+# get quantity of free days from 1C through web api
+def getvacation(userid, date):
+    server = ldap3.Server(connection.ad_server, get_info=ldap3.ALL)
+    conn = ldap3.Connection(server,
+                            user=connection.ad_user,
+                            password=connection.ad_secret,
+                            authentication=ldap3.NTLM)
+    number = 0
+    user = ''
+    connection_users = pymysql.connect(host=connection.host_otrs,
+                                       user=connection.user_otrs,
+                                       password=connection.password_otrs,
+                                       db=connection.db_otrs_users,
+                                       charset=connection.charset,
+                                       cursorclass=pymysql.cursors.DictCursor)
+    try:
+        with connection_users.cursor() as cur_users:
+            cur_users.execute(sql_queries.validation_by_id, userid)
+            for row in cur_users:
+                number = row['ID']
+                user = row['AD_name']
+
+    finally:
+        connection_users.close()
+    if number != 1:
+        return False
+    else:
+        conn.bind()
         try:
-            urllib.request.urlopen(url_while)
-            url = url_while
-            f = open('out.png', 'wb')
-            f.write(urllib.request.urlopen(url_while).read())
-            f.close()
-            img = open('out.png', 'rb')
-            return img
-        except urllib.request.HTTPError:
-            pass
-        url_while = url
-    return False
+            conn.search(search_base=connection.ad_ou,
+                        search_filter='(&(samAccountName=' + user + '))',
+                        attributes=['extensionAttribute10'])
+            entry = conn.entries[0]
+            onesid = entry['extensionAttribute10']
+        except ldap3.LDAPKeyError:
+            return -5001
+        finally:
+            conn.unbind()
+        url = config.rdif_api_url + str(onesid) + '/' + str(date)
+        try:
+            days = int(urllib2.urlopen(url).read())
+        except urllib2.HTTPError:
+            return False
+        return days

@@ -27,14 +27,18 @@ detailed_queue = "SELECT queue.name AS 'Queue' " \
 
 # Проверка пристутсвия пользователя телеграм в базе доверенных.
 validation_by_id = "SELECT COUNT(ID) AS 'ID', otrs_queue_id, AD_name, update_time FROM tlgrm_bot.users WHERE ID = %s"
+
+
 # Update Date update in user DB
 update_valid_date = "UPDATE users set update_time = CURDATE() WHERE ID = %s"
+
 
 # Адресная книга с портала
 addr_book = "SELECT NAME, LAST_NAME, PERSONAL_MOBILE, WORK_PHONE " \
             "FROM b_user WHERE ACTIVE LIKE 'Y' " \
             "AND PERSONAL_MOBILE IS NOT NULL " \
             "AND PERSONAL_MOBILE NOT LIKE ''"
+
 
 # Состояние задач в директуме
 directum_state = """
