@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import json
-import requests
+
+
 import pymysql.cursors
 import urllib.request as urllib2
 from bs4 import BeautifulSoup
@@ -164,20 +164,27 @@ def useraccess(userid):
 
 
 def getbashquote():
-    url = 'http://pebble.groosh.pw/nget.php'
-    params = dict(
-        quote=0
-    )
 
-    resp = requests.get(url=url, params=params)
+    number = random.randint(1, 1000000)
+
+    bash_text = ""
+    url = config.bash_url + str(number)
+
+    request = urllib2.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:40.0) "
+                                                          "Gecko/20100101 Firefox/40.0"})
+
     try:
-        data = json.loads(resp.text.replace('\x00', ''))
-        text = data['text'].replace('<br />', '\n')\
-            .replace('&quot;', '\"')\
-            .replace('<br>', '\n')
-        return str(data['id']).replace('#', '№') + '\n' + text
-    except Exception:
+        resp = urllib2.urlopen(request)
+        if resp.url == 'http://bash.im/':
+            return False
+    except urllib2.HTTPError:
         return 'bash: Произошла ошибка, попробуйте ещё раз'
+
+    web_soup = BeautifulSoup(resp, "html.parser")
+    bash_tag = web_soup.find(name="div", attrs={'class': 'text'})
+    for string in bash_tag.strings:
+        bash_text += string + "\n"
+    return '№' + str(number) + '\n' + bash_text
 
 
 def getxkcdimage():
@@ -240,7 +247,7 @@ def getvacation(userid, date):
             return -5001
         finally:
             conn.unbind()
-        url = config.rdif_api_url + str(onesid) + '/' + str(date)
+        url = config.rdif_api_url + str(onesid) + '&date=' + str(date)
         try:
             days = int(urllib2.urlopen(url).read())
         except urllib2.HTTPError:

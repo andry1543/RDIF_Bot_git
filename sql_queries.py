@@ -54,3 +54,28 @@ directum_state = """
                  WHERE TaskID = %s  AND State = 'W'
                  ORDER BY job.XRecID;
                  """
+
+
+# Сотрудники в отпуске
+otst = "select item.Dop, " \
+       "otst.DatClose " \
+       "from MBAnalit otst " \
+       "left join directum.dbo.MBAnalit item on item.Analit = otst.FIO " \
+       "where otst.Vid = (select Vid from MBVidAn where Kod = 'ОТСТ') " \
+       "AND otst.DatOpen <  GETDATE() " \
+       "AND otst.DatClose >  GETDATE() " \
+       "AND otst.StatusOtpuska = 3" \
+       "ORDER BY item.Dop;"
+
+
+# Сотрудники в командировке
+komand = "select item.Dop, " \
+         "otst.Date3 " \
+         "from MBAnalit otst " \
+         "left join directum.dbo.MBAnalit item on item.Analit = otst.FIO " \
+         "where otst.Vid = (select Vid from MBVidAn where Kod = 'BTBusinessTrips') " \
+         "AND otst.Date2 <  GETDATE() " \
+         "AND otst.Date3 >  GETDATE() " \
+         "AND otst.Proekt != 254247" \
+         "AND otst.StateBusinessTrip = 125105" \
+         "ORDER BY item.Dop;"
